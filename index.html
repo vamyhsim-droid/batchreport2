@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HSIM Student Performance Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #12121a;
+    --bg3: #1a1a26;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.15);
+    --text: #f0f0ff;
+    --muted: rgba(240,240,255,0.5);
+    --accent: #7c6fff;
+    --accent2: #ff6b9d;
+    --green: #4fffb0;
+    --amber: #ffcc5c;
+    --red: #ff5f5f;
+    --cyan: #5cf0ff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+  body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events: none; z-index: 0; }
+  .orb { position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; opacity: 0.15; }
+  .orb1 { width: 600px; height: 600px; background: var(--accent); top: -200px; left: -200px; }
+  .orb2 { width: 500px; height: 500px; background: var(--accent2); bottom: -150px; right: -150px; }
+
+  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 1.25rem 2.5rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); background: rgba(10,10,15,0.85); backdrop-filter: blur(20px); }
+  .nav-logo { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
+  .nav-logo span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .nav-badge { font-size: 0.72rem; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border2); color: var(--muted); }
+  .nav-back-btn { background: rgba(124,111,255,0.15); border: 1px solid rgba(124,111,255,0.3); color: var(--accent); padding: 8px 18px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; transition: all 0.2s; display: none; }
+  .nav-back-btn:hover { background: rgba(124,111,255,0.25); }
+  .nav-back-btn.visible { display: block; }
+
+  .view { display: none; padding-top: 90px; min-height: 100vh; position: relative; z-index: 1; }
+  .view.active { display: block; }
+
+  .home-hero { padding: 4rem 2.5rem 2rem; text-align: center; }
+  .home-hero h1 { font-family: 'Syne', sans-serif; font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1; margin-bottom: 1rem; }
+  .home-hero h1 .grad { background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 50%, var(--cyan) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .home-hero p { color: var(--muted); font-size: 1.05rem; max-width: 500px; margin: 0 auto 2.5rem; line-height: 1.7; }
+  .home-stats { display: flex; align-items: center; justify-content: center; gap: 2rem; margin-bottom: 3rem; flex-wrap: wrap; }
+  .home-stat .val { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .home-stat .lbl { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+  .stat-divider { width: 1px; height: 40px; background: var(--border2); }
+
+  .students-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; padding: 0 2.5rem 4rem; }
+  .student-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 20px; padding: 1.75rem; cursor: pointer; transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); position: relative; overflow: hidden; opacity: 0; }
+  .student-card:hover { transform: translateY(-6px); border-color: var(--border2); }
+  .card-avatar { width: 54px; height: 54px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 800; margin-bottom: 1.25rem; }
+  .card-name { font-family: 'Syne', sans-serif; font-size: 1.25rem; font-weight: 700; margin-bottom: 0.25rem; letter-spacing: -0.02em; }
+  .card-subtitle { font-size: 0.8rem; color: var(--muted); margin-bottom: 1.5rem; }
+  .card-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .card-metric { background: rgba(255,255,255,0.04); border-radius: 10px; padding: 0.6rem 0.75rem; }
+  .card-metric .m-val { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; }
+  .card-metric .m-lbl { font-size: 0.7rem; color: var(--muted); margin-top: 1px; }
+  .card-arrow { position: absolute; top: 1.5rem; right: 1.5rem; width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border2); display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-size: 1rem; }
+  .student-card:hover .card-arrow { background: rgba(124,111,255,0.2); border-color: var(--accent); color: var(--accent); transform: translate(2px, -2px); }
+  .card-batch { position: absolute; top: 1.65rem; right: 4rem; font-size: 0.65rem; padding: 3px 8px; border-radius: 20px; background: rgba(124,111,255,0.15); color: var(--accent); border: 1px solid rgba(124,111,255,0.25); }
+
+  .detail-header { padding: 2.5rem 2.5rem 0; display: flex; align-items: flex-start; gap: 2rem; flex-wrap: wrap; }
+  .detail-avatar { width: 80px; height: 80px; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; flex-shrink: 0; }
+  .detail-info h1 { font-family: 'Syne', sans-serif; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 0.3rem; }
+  .detail-info p { color: var(--muted); font-size: 0.9rem; }
+  .detail-sheet-link { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--accent); border: 1px solid rgba(124,111,255,0.3); padding: 5px 12px; border-radius: 8px; text-decoration: none; transition: all 0.2s; margin-right: 0.4rem; margin-bottom: 0.4rem; }
+  .detail-sheet-link:hover { background: rgba(124,111,255,0.1); }
+
+  .detail-tabs { display: flex; gap: 0; padding: 1.5rem 2.5rem 0; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+  .detail-tabs::-webkit-scrollbar { display: none; }
+  .tab-btn { background: none; border: none; color: var(--muted); padding: 0.75rem 1.25rem; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500; white-space: nowrap; position: relative; transition: color 0.2s; }
+  .tab-btn::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: var(--accent); transform: scaleX(0); transition: transform 0.2s; border-radius: 2px 2px 0 0; }
+  .tab-btn.active { color: var(--text); }
+  .tab-btn.active::after { transform: scaleX(1); }
+  .tab-btn:hover:not(.active) { color: rgba(240,240,255,0.8); }
+
+  .detail-content { padding: 2rem 2.5rem 4rem; }
+
+  .section-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.25rem; }
+  .section-title { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px; }
+
+  .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .data-table th { text-align: left; padding: 0.6rem 0.75rem; color: var(--muted); font-weight: 500; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); background: var(--bg3); }
+  .data-table td { padding: 0.65rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .att-pres { color: var(--green); font-weight: 500; }
+  .att-abs { color: var(--red); font-weight: 500; }
+  .att-late { color: var(--amber); font-weight: 500; }
+
+  .score-pill { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 500; }
+  .score-high { background: rgba(79,255,176,0.12); color: var(--green); }
+  .score-mid { background: rgba(255,204,92,0.12); color: var(--amber); }
+  .score-low { background: rgba(255,95,95,0.1); color: var(--red); }
+
+  .link-cell a { color: var(--accent); text-decoration: none; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; border-bottom: 1px solid rgba(124,111,255,0.3); }
+  .link-cell a:hover { border-color: var(--accent); }
+
+  .overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+  .ov-metric { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem; }
+  .ov-metric .ov-lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.5rem; }
+  .ov-metric .ov-val { font-family: 'Syne', sans-serif; font-size: 1.75rem; font-weight: 800; line-height: 1; }
+
+  .prog-bar { height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 4px; transition: width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+  .error-state { text-align: center; padding: 3rem; color: var(--muted); }
+  .error-icon { font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.5; }
+
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 3rem auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  .status-row { display: flex; align-items: center; justify-content: space-between; padding: 0.85rem 1rem; background: var(--bg3); border-radius: 10px; border: 1px solid var(--border); margin-bottom: 8px; }
+  .status-done { color: var(--green); font-size: 0.85rem; }
+  .status-pending { color: var(--amber); font-size: 0.85rem; }
+  .status-missing { color: var(--red); font-size: 0.85rem; }
+
+  .null-cell { color: var(--muted); font-size: 0.8rem; font-style: italic; }
+  .info-banner { background: rgba(124,111,255,0.08); border: 1px solid rgba(124,111,255,0.2); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: rgba(240,240,255,0.7); display: flex; align-items: flex-start; gap: 10px; }
+
+  .batch-toggle { display: flex; gap: 4px; margin-bottom: 1.5rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 4px; width: fit-content; }
+  .batch-btn { background: none; border: none; color: var(--muted); padding: 8px 18px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; transition: all 0.2s; }
+  .batch-btn.active { background: rgba(124,111,255,0.2); color: var(--accent); }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.25rem; }
+    .home-hero { padding: 2rem 1.25rem 1rem; }
+    .students-grid { padding: 0 1.25rem 3rem; gap: 1rem; }
+    .detail-header { padding: 1.5rem 1.25rem 0; }
+    .detail-tabs { padding: 1rem 1.25rem 0; }
+    .detail-content { padding: 1.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<nav>
+  <div class="nav-logo">
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <rect width="10" height="10" rx="3" fill="#7c6fff"/>
+      <rect x="12" width="10" height="10" rx="3" fill="#ff6b9d" opacity="0.7"/>
+      <rect y="12" width="10" height="10" rx="3" fill="#5cf0ff" opacity="0.7"/>
+      <rect x="12" y="12" width="10" height="10" rx="3" fill="#7c6fff" opacity="0.5"/>
+    </svg>
+    <span>HSIM Dashboard</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div class="nav-badge">SEO Training Batch</div>
+    <button class="nav-back-btn" id="back-btn" onclick="showHome()">← Back</button>
+  </div>
+</nav>
+
+<div class="view active" id="home-view">
+  <div class="home-hero" style="animation: fadeUp 0.5s ease forwards;">
+    <h1>Student <span class="grad">Performance</span><br>Dashboard</h1>
+    <p>Track every student's journey — attendance, test scores, assignments, and live project work.</p>
+    <div class="home-stats">
+      <div class="home-stat">
+        <div class="val">7</div>
+        <div class="lbl">Students</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="home-stat">
+        <div class="val">10+</div>
+        <div class="lbl">Reports</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="home-stat">
+        <div class="val">Live</div>
+        <div class="lbl">Google Sheets</div>
+      </div>
+    </div>
+  </div>
+  <div class="students-grid" id="students-grid"></div>
+</div>
+
+<div class="view" id="detail-view">
+  <div class="detail-header" id="detail-header"></div>
+  <div class="detail-tabs" id="detail-tabs"></div>
+  <div class="detail-content" id="detail-content"></div>
+</div>
+
+<script>
+// ============================================
+// CONFIGURATION — exact tab names from screenshots
+// ============================================
+
+const BATCH_SHEETS = {
+  dec25: '1nNnVvegq6E8vMVH57bN9hiDBkiIIquQSCePFw2vjgz8',
+};
+
+// Tab names exactly as visible in BatchDec25N12 screenshot
+const TABS = {
+  attendance: 'Attendance',
+  classRecording: 'Class Recording',
+  details: 'Details',
+  seoManuals: 'SEO manuals',
+  testResult: 'Test Result',
+  testInput: 'Test Input',
+  niche: 'Niche research',
+  freelancing: 'Freelancing',
+  content: 'Content writing',
+  questions: 'Questions',
+  webDesign: 'Web Designing',
+  technical: 'Technical SEO',
+  syllabus: 'Syllabus',
+  onpage: 'On-Page SEO',
+  offpage: 'Off-Page SEO',
+  studentsSheet: 'Students Sheet',
+  audit: 'Website Audit Report',
+  jobs: 'Jobs Research',
+};
+
+const STUDENTS = [
+  { id:'deepak',  name:'Deepak',  hsimId:'HSIM25120249', initials:'DK', color1:'#7c6fff', color2:'#5cf0ff', nameMatch:['deepak'], personalSheet:'1tcA0Bq2YO3vd5zVBGGUxiqugsWVwFlmMTxkrXg2N3-4', batchSheet:BATCH_SHEETS.dec25, batchLabel:'Dec 2025' },
+  { id:'ujjwal',  name:'Ujjwal',  hsimId:'HSIM25120248', initials:'UJ', color1:'#ff6b9d', color2:'#ffcc5c', nameMatch:['ujjwal','ujwal','ujjawal'], personalSheet:'1TjFBoev0bFHFGR1erHPXbdgYf33mqL8FwMISAKXJ9eA', batchSheet:BATCH_SHEETS.dec25, batchLabel:'Dec 2025' },
+  { id:'gaurav',  name:'Gaurav',  hsimId:'HSIM25120247', initials:'GV', color1:'#4fffb0', color2:'#5cf0ff', nameMatch:['gaurav','gourav'], personalSheet:'1MgIDaOqybRy0yZdIjvq6DThO9P9IsRYnSP2hmR0MwXI', batchSheet:BATCH_SHEETS.dec25, batchLabel:'Dec 2025' },
+  { id:'sushmita',name:'Sushmita',hsimId:'HSIM26010251', initials:'SM', color1:'#ff6b9d', color2:'#7c6fff', nameMatch:['sushmita','susmita','sushmita karki'], personalSheet:'1FKcch_yz2ukX8pwNXRtUK9C4TyVmjRe1xJvjFFz0g6M', batchSheet:BATCH_SHEETS.dec25, batchLabel:'Dec 2025' },
+  { id:'lavisha', name:'Lavisha', hsimId:'HSIM26010252', initials:'LV', color1:'#ffcc5c', color2:'#ff6b9d', nameMatch:['lavisha'], personalSheet:'1XJTvc-5MyK1uVI8n8o3mMBM9D1t-yBGkWrpowYwUs5Y', batchSheet:BATCH_SHEETS.dec25, batchLabel:'Dec 2025' },
+  { id:'hardik',  name:'Hardik',  hsimId:'HSIM25080223', initials:'HK', color1:'#5cf0ff', color2:'#7c6fff', nameMatch:['hardik'], personalSheet:'1btUnUZsInMoAp41hRL8Syg1Vb89w1dEw3KHs_SVnors', personalSheet2:'1BpOqklrZHIwby0cO73uJE415HT5YyJznYz146O0ke2g', batchSheet:BATCH_SHEETS.dec25, batchLabel:'2 Batches' },
+];
+
+const cache = {};
+
+// ============================================
+// CORE: Fetch Google Sheet via gviz JSON
+// ============================================
+async function fetchSheet(sheetId, sheetName) {
+  const key = `${sheetId}::${sheetName}`;
+  if (cache[key] !== undefined) return cache[key];
+  
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+    const res = await fetch(url);
+    if (!res.ok) { cache[key] = null; return null; }
+    const text = await res.text();
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start === -1 || end === -1) { cache[key] = null; return null; }
+    const json = JSON.parse(text.substring(start, end + 1));
+    if (json.status === 'error') { 
+      console.warn('Sheet error:', sheetName, json.errors); 
+      cache[key] = null; 
+      return null; 
+    }
+    cache[key] = json;
+    return json;
+  } catch(e) {
+    console.error('Fetch failed:', sheetName, e.message);
+    cache[key] = null;
+    return null;
+  }
+}
+
+const getRows = d => (d && d.table && d.table.rows) ? d.table.rows : [];
+const getHeaders = d => (d && d.table && d.table.cols) ? d.table.cols.map(c => c.label || c.id || '') : [];
+const cellVal = c => (!c || c.v === null || c.v === undefined) ? '' : (c.f || String(c.v));
+
+function findCol(headers, candidates) {
+  for (let i = 0; i < headers.length; i++) {
+    const h = (headers[i] || '').toLowerCase().trim();
+    if (candidates.some(c => h === c.toLowerCase() || h.includes(c.toLowerCase()))) return i;
+  }
+  return -1;
+}
+
+function rowMatchesStudent(row, student, idCol, nameCol) {
+  const cells = row.c || [];
+  // Primary: match by HSIM ID
+  if (idCol !== -1) {
+    const idCell = cells[idCol];
+    if (idCell && idCell.v !== null && idCell.v !== undefined) {
+      const idVal = String(idCell.v).trim().toUpperCase();
+      if (idVal === student.hsimId.toUpperCase()) return true;
+    }
+  }
+  // Fallback: match by name
+  if (nameCol !== -1) {
+    const nameCell = cells[nameCol];
+    if (nameCell && nameCell.v !== null && nameCell.v !== undefined) {
+      const nameVal = String(nameCell.v).toLowerCase().trim();
+      if (student.nameMatch.some(m => nameVal === m.toLowerCase() || nameVal.includes(m.toLowerCase()))) return true;
+    }
+  }
+  return false;
+}
+
+function filterByStudent(data, student) {
+  const headers = getHeaders(data);
+  const idCol = findCol(headers, ['hsim id','hsim_id','student id','studentid']);
+  const nameCol = findCol(headers, ['student name','name','student']);
+  if (idCol === -1 && nameCol === -1) return { headers, rows: getRows(data), idCol: -1, nameCol: -1 };
+  const rows = getRows(data).filter(r => rowMatchesStudent(r, student, idCol, nameCol));
+  return { headers, rows, idCol, nameCol };
+}
+
+function renderTable(headers, rows) {
+  if (!rows.length) return `<div class="null-cell" style="padding:1.5rem;text-align:center;">No data found for this student.</div>`;
+  let html = `<div style="overflow-x:auto;"><table class="data-table"><thead><tr>`;
+  headers.forEach((h, i) => { html += `<th>${h || `Col ${i+1}`}</th>`; });
+  html += `</tr></thead><tbody>`;
+  rows.forEach(row => {
+    html += `<tr>`;
+    headers.forEach((h, i) => {
+      const cell = (row.c || [])[i];
+      const v = cellVal(cell);
+      const lh = (h || '').toLowerCase();
+      let content;
+      if (!v) content = `<span class="null-cell">—</span>`;
+      else if (lh.includes('attendance') || lh === 'status') {
+        const lv = v.toLowerCase();
+        if (lv.includes('present') || lv === 'p') content = `<span class="att-pres">● Present</span>`;
+        else if (lv.includes('absent') || lv === 'a') content = `<span class="att-abs">● Absent</span>`;
+        else if (lv.includes('late') || lv === 'l') content = `<span class="att-late">● Late</span>`;
+        else content = v;
+      } else if (v.startsWith('http')) {
+        const short = v.length > 50 ? v.substring(0, 50) + '…' : v;
+        content = `<span class="link-cell"><a href="${v}" target="_blank">${short} ↗</a></span>`;
+      } else if ((lh.includes('score') || lh.includes('marks') || lh.includes('total')) && !isNaN(parseFloat(v))) {
+        const n = parseFloat(v);
+        let cls = 'score-mid';
+        if (n >= 75) cls = 'score-high'; else if (n < 50) cls = 'score-low';
+        content = `<span class="score-pill ${cls}">${v}</span>`;
+      } else content = v;
+      html += `<td>${content}</td>`;
+    });
+    html += `</tr>`;
+  });
+  html += `</tbody></table></div>`;
+  return html;
+}
+
+// ============================================
+// HOME PAGE
+// ============================================
+function loadHome() {
+  const grid = document.getElementById('students-grid');
+  grid.innerHTML = '';
+  
+  STUDENTS.forEach((student, idx) => {
+    const card = document.createElement('div');
+    card.className = 'student-card';
+    card.style.animation = `fadeUp 0.5s ${idx * 0.06}s ease forwards`;
+    card.onclick = () => showStudent(student);
+    
+    card.innerHTML = `
+      <div class="card-arrow">→</div>
+      ${student.batchLabel === '2 Batches' ? '<div class="card-batch">2 Batches</div>' : ''}
+      <div class="card-avatar" style="background: linear-gradient(135deg, ${student.color1}33, ${student.color2}33); color: ${student.color1};">${student.initials}</div>
+      <div class="card-name">${student.name}</div>
+      <div class="card-subtitle">${student.batchLabel} · SEO Training</div>
+      <div class="card-metrics">
+        <div class="card-metric">
+          <div class="m-val" style="color:${student.color1};" id="att-${student.id}">···</div>
+          <div class="m-lbl">Attendance</div>
+        </div>
+        <div class="card-metric">
+          <div class="m-val" style="color:${student.color2};" id="score-${student.id}">···</div>
+          <div class="m-lbl">Avg Test</div>
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+    
+    loadCardStats(student);
+  });
+}
+
+async function loadCardStats(student) {
+  // Attendance
+  const attData = await fetchSheet(student.batchSheet, TABS.attendance);
+  if (attData) {
+    const { rows } = filterByStudent(attData, student);
+    const headers = getHeaders(attData);
+    const attCol = findCol(headers, ['attendance','status']);
+    if (attCol !== -1) {
+      let p = 0, t = 0;
+      rows.forEach(row => {
+        const v = (cellVal((row.c||[])[attCol]) || '').toLowerCase().trim();
+        if (v) { t++; if (v.includes('present') || v === 'p') p++; }
+      });
+      const pct = t > 0 ? Math.round(p/t*100) : 0;
+      const el = document.getElementById(`att-${student.id}`);
+      if (el) el.textContent = (t > 0 ? pct + '%' : '—');
+    }
+  } else {
+    const el = document.getElementById(`att-${student.id}`);
+    if (el) el.textContent = '—';
+  }
+  
+  // Test Result
+  const tData = await fetchSheet(student.batchSheet, TABS.testResult);
+  if (tData) {
+    const { rows } = filterByStudent(tData, student);
+    let scores = [];
+    rows.forEach(row => {
+      (row.c||[]).forEach(cell => {
+        const v = parseFloat(cellVal(cell));
+        if (!isNaN(v) && v > 0 && v <= 100) scores.push(v);
+      });
+    });
+    const el = document.getElementById(`score-${student.id}`);
+    if (el) el.textContent = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : '—';
+  } else {
+    const el = document.getElementById(`score-${student.id}`);
+    if (el) el.textContent = '—';
+  }
+}
+
+// ============================================
+// STUDENT DETAIL
+// ============================================
+let currentStudent = null;
+let activeBatch = 1; // For Hardik
+
+async function showStudent(student) {
+  currentStudent = student;
+  activeBatch = 1;
+  document.getElementById('home-view').classList.remove('active');
+  document.getElementById('detail-view').classList.add('active');
+  document.getElementById('back-btn').classList.add('visible');
+  window.scrollTo(0, 0);
+  
+  renderDetailHeader(student);
+  renderDetailTabs();
+  showTab('overview');
+}
+
+function renderDetailHeader(student) {
+  const header = document.getElementById('detail-header');
+  let links = `<a href="https://docs.google.com/spreadsheets/d/${student.personalSheet}" target="_blank" class="detail-sheet-link">📊 Personal Sheet ↗</a>`;
+  if (student.personalSheet2) {
+    links += `<a href="https://docs.google.com/spreadsheets/d/${student.personalSheet2}" target="_blank" class="detail-sheet-link">📊 Personal Sheet 2 ↗</a>`;
+  }
+  links += `<a href="https://docs.google.com/spreadsheets/d/${student.batchSheet}" target="_blank" class="detail-sheet-link">📋 Batch Sheet ↗</a>`;
+  
+  header.innerHTML = `
+    <div class="detail-avatar" style="background: linear-gradient(135deg, ${student.color1}33, ${student.color2}33); color: ${student.color1};">${student.initials}</div>
+    <div class="detail-info" style="flex:1;min-width:200px;">
+      <h1>${student.name}</h1>
+      <p>SEO Training Student · ${student.batchLabel}</p>
+      <div style="margin-top:0.85rem;display:flex;flex-wrap:wrap;">${links}</div>
+    </div>
+  `;
+}
+
+function renderDetailTabs() {
+  const tabs = document.getElementById('detail-tabs');
+  const list = [
+    { key:'overview', label:'🏠 Overview' },
+    { key:'attendance', label:'📅 Attendance' },
+    { key:'test', label:'📝 Test Results' },
+    { key:'niche', label:'🔍 Niche Research' },
+    { key:'onpage', label:'⚙️ On-Page SEO' },
+    { key:'content', label:'✍️ Content Writing' },
+    { key:'technical', label:'🛠️ Technical SEO' },
+    { key:'design', label:'🎨 Web Designing' },
+    { key:'offpage', label:'🔗 Off-Page SEO' },
+    { key:'audit', label:'🔎 Website Audit' },
+    { key:'jobs', label:'💼 Jobs Research' },
+    { key:'freelancing', label:'💸 Freelancing' },
+    { key:'questions', label:'❓ Questions' },
+    { key:'personal', label:'📁 Personal Report' },
+  ];
+  tabs.innerHTML = list.map(t => `<button class="tab-btn" id="tab-${t.key}" onclick="showTab('${t.key}')">${t.label}</button>`).join('');
+}
+
+async function showTab(key) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById(`tab-${key}`);
+  if (btn) btn.classList.add('active');
+  
+  const content = document.getElementById('detail-content');
+  content.innerHTML = `<div class="spinner"></div>`;
+  
+  if (key === 'overview') return renderOverview(content);
+  if (key === 'attendance') return renderAttendance(content);
+  if (key === 'test') return renderTest(content);
+  if (key === 'niche') return renderSection(content, TABS.niche, '🔍 Niche Research');
+  if (key === 'onpage') return renderSection(content, TABS.onpage, '⚙️ On-Page SEO');
+  if (key === 'content') return renderSection(content, TABS.content, '✍️ Content Writing');
+  if (key === 'technical') return renderSection(content, TABS.technical, '🛠️ Technical SEO');
+  if (key === 'design') return renderSection(content, TABS.webDesign, '🎨 Web Designing');
+  if (key === 'offpage') return renderSection(content, TABS.offpage, '🔗 Off-Page SEO');
+  if (key === 'audit') return renderSection(content, TABS.audit, '🔎 Website Audit Report');
+  if (key === 'jobs') return renderSection(content, TABS.jobs, '💼 Jobs Research');
+  if (key === 'freelancing') return renderSection(content, TABS.freelancing, '💸 Freelancing');
+  if (key === 'questions') return renderSection(content, TABS.questions, '❓ Questions');
+  if (key === 'personal') return renderPersonal(content);
+}
+
+async function renderOverview(content) {
+  content.innerHTML = `
+    <div class="overview-grid">
+      <div class="ov-metric"><div class="ov-lbl">Attendance</div><div class="ov-val" id="ov-att" style="color:var(--green)">···</div></div>
+      <div class="ov-metric"><div class="ov-lbl">Avg Test</div><div class="ov-val" id="ov-score" style="color:var(--accent)">···</div></div>
+      <div class="ov-metric"><div class="ov-lbl">Reports</div><div class="ov-val" id="ov-reports" style="color:var(--cyan)">···</div></div>
+      <div class="ov-metric"><div class="ov-lbl">Total Days</div><div class="ov-val" id="ov-days" style="color:var(--amber)">···</div></div>
+    </div>
+    <div class="section-card">
+      <div class="section-title">📊 Attendance Progress</div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="prog-bar" style="flex:1;"><div class="prog-fill" id="ov-prog" style="width:0%;background:var(--green);"></div></div>
+        <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;" id="ov-prog-pct">···%</span>
+      </div>
+    </div>
+    <div class="section-card">
+      <div class="section-title">📋 Report Submission Status</div>
+      <div id="ov-reports-list"><div class="spinner"></div></div>
+    </div>
+  `;
+  
+  // Attendance
+  const attData = await fetchSheet(currentStudent.batchSheet, TABS.attendance);
+  let pct = 0, totalDays = 0;
+  if (attData) {
+    const { rows } = filterByStudent(attData, currentStudent);
+    const headers = getHeaders(attData);
+    const attCol = findCol(headers, ['attendance','status']);
+    if (attCol !== -1) {
+      let p = 0, a = 0, l = 0;
+      rows.forEach(row => {
+        const v = (cellVal((row.c||[])[attCol]) || '').toLowerCase().trim();
+        if (v.includes('present') || v === 'p') p++;
+        else if (v.includes('absent') || v === 'a') a++;
+        else if (v.includes('late') || v === 'l') l++;
+      });
+      totalDays = p + a + l;
+      pct = totalDays > 0 ? Math.round(p/totalDays*100) : 0;
+    }
+  }
+  document.getElementById('ov-att').textContent = totalDays > 0 ? pct + '%' : '—';
+  document.getElementById('ov-days').textContent = totalDays || '—';
+  document.getElementById('ov-prog-pct').textContent = pct + '%';
+  const color = pct >= 75 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+  document.getElementById('ov-prog').style.background = color;
+  document.getElementById('ov-prog-pct').style.color = color;
+  setTimeout(() => { document.getElementById('ov-prog').style.width = pct + '%'; }, 100);
+  
+  // Test
+  const tData = await fetchSheet(currentStudent.batchSheet, TABS.testResult);
+  if (tData) {
+    const { rows } = filterByStudent(tData, currentStudent);
+    let scores = [];
+    rows.forEach(row => (row.c||[]).forEach(cell => {
+      const v = parseFloat(cellVal(cell));
+      if (!isNaN(v) && v > 0 && v <= 100) scores.push(v);
+    }));
+    document.getElementById('ov-score').textContent = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) + '/100' : '—';
+  } else document.getElementById('ov-score').textContent = '—';
+  
+  // Reports list
+  const reports = [
+    { label:'Niche Research', tab: TABS.niche },
+    { label:'On-Page SEO', tab: TABS.onpage },
+    { label:'Content Writing', tab: TABS.content },
+    { label:'Technical SEO', tab: TABS.technical },
+    { label:'Web Designing', tab: TABS.webDesign },
+    { label:'Off-Page SEO', tab: TABS.offpage },
+    { label:'Website Audit', tab: TABS.audit },
+    { label:'Jobs Research', tab: TABS.jobs },
+  ];
+  
+  let html = '';
+  let done = 0;
+  for (const r of reports) {
+    const data = await fetchSheet(currentStudent.batchSheet, r.tab);
+    let status = '✗ Not Submitted', cls = 'status-missing', extra = '';
+    
+    if (data) {
+      const { rows, nameCol } = filterByStudent(data, currentStudent);
+      if (rows.length > 0) {
+        let hasContent = false, firstLink = null;
+        rows.forEach(row => {
+          (row.c||[]).forEach((cell, i) => {
+            if (i === nameCol) return;
+            const v = cellVal(cell);
+            if (v && v.length > 1) {
+              hasContent = true;
+              if (v.startsWith('http') && !firstLink) firstLink = v;
+            }
+          });
+        });
+        if (hasContent) {
+          status = '✓ Submitted'; cls = 'status-done'; done++;
+          if (firstLink) extra = `<a href="${firstLink}" target="_blank" style="color:var(--accent);font-size:0.78rem;margin-left:8px;">View ↗</a>`;
+        } else {
+          status = '⚠ Empty'; cls = 'status-pending';
+        }
+      }
+    }
+    
+    html += `<div class="status-row">
+      <div style="font-size:0.9rem;">${r.label}</div>
+      <div style="display:flex;align-items:center;gap:8px;"><span class="${cls}">${status}</span>${extra}</div>
+    </div>`;
+  }
+  
+  document.getElementById('ov-reports').textContent = done + '/' + reports.length;
+  document.getElementById('ov-reports-list').innerHTML = html;
+}
+
+async function renderAttendance(content) {
+  const data = await fetchSheet(currentStudent.batchSheet, TABS.attendance);
+  if (!data) {
+    content.innerHTML = `<div class="error-state"><div class="error-icon">📅</div><p>Couldn't load attendance sheet.</p></div>`;
+    return;
+  }
+  
+  const { rows } = filterByStudent(data, currentStudent);
+  const headers = getHeaders(data);
+  const attCol = findCol(headers, ['attendance','status']);
+  
+  let p = 0, a = 0, l = 0;
+  if (attCol !== -1) {
+    rows.forEach(row => {
+      const v = (cellVal((row.c||[])[attCol]) || '').toLowerCase().trim();
+      if (v.includes('present') || v === 'p') p++;
+      else if (v.includes('absent') || v === 'a') a++;
+      else if (v.includes('late') || v === 'l') l++;
+    });
+  }
+  
+  const total = p + a + l;
+  const pct = total > 0 ? Math.round(p/total*100) : 0;
+  const color = pct >= 75 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+  
+  content.innerHTML = `
+    <div class="overview-grid">
+      <div class="ov-metric"><div class="ov-lbl">Attendance %</div><div class="ov-val" style="color:${color}">${pct}%</div></div>
+      <div class="ov-metric"><div class="ov-lbl">Present</div><div class="ov-val" style="color:var(--green)">${p}</div></div>
+      <div class="ov-metric"><div class="ov-lbl">Absent</div><div class="ov-val" style="color:var(--red)">${a}</div></div>
+      <div class="ov-metric"><div class="ov-lbl">Late</div><div class="ov-val" style="color:var(--amber)">${l}</div></div>
+    </div>
+    <div class="section-card">
+      <div class="section-title">📅 Full Attendance (${rows.length} entries)</div>
+      ${renderTable(headers, rows)}
+    </div>
+  `;
+}
+
+async function renderTest(content) {
+  const trData = await fetchSheet(currentStudent.batchSheet, TABS.testResult);
+  const tiData = await fetchSheet(currentStudent.batchSheet, TABS.testInput);
+  
+  let html = '';
+  
+  if (trData) {
+    const { rows } = filterByStudent(trData, currentStudent);
+    const headers = getHeaders(trData);
+    let scores = [];
+    rows.forEach(row => (row.c||[]).forEach(cell => {
+      const v = parseFloat(cellVal(cell));
+      if (!isNaN(v) && v > 0 && v <= 100) scores.push(v);
+    }));
+    const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
+    const max = scores.length ? Math.max(...scores) : 0;
+    const min = scores.length ? Math.min(...scores) : 0;
+    
+    html += `
+      <div class="overview-grid">
+        <div class="ov-metric"><div class="ov-lbl">Average</div><div class="ov-val" style="color:var(--accent)">${avg}/100</div></div>
+        <div class="ov-metric"><div class="ov-lbl">Highest</div><div class="ov-val" style="color:var(--green)">${max}</div></div>
+        <div class="ov-metric"><div class="ov-lbl">Lowest</div><div class="ov-val" style="color:var(--red)">${min}</div></div>
+        <div class="ov-metric"><div class="ov-lbl">Total Tests</div><div class="ov-val" style="color:var(--cyan)">${rows.length}</div></div>
+      </div>
+      <div class="section-card">
+        <div class="section-title">📝 Test Results</div>
+        ${renderTable(headers, rows)}
+      </div>`;
+  }
+  
+  if (tiData) {
+    const { rows } = filterByStudent(tiData, currentStudent);
+    if (rows.length > 0) {
+      const headers = getHeaders(tiData);
+      html += `<div class="section-card">
+        <div class="section-title">📋 Test Input</div>
+        ${renderTable(headers, rows)}
+      </div>`;
+    }
+  }
+  
+  if (!html) html = `<div class="error-state"><div class="error-icon">📝</div><p>No test data found.</p></div>`;
+  content.innerHTML = html;
+}
+
+async function renderSection(content, tabName, title) {
+  const data = await fetchSheet(currentStudent.batchSheet, tabName);
+  if (!data) {
+    content.innerHTML = `<div class="error-state"><div class="error-icon">📂</div><p>Tab "<strong>${tabName}</strong>" not accessible. It may be locked or hidden.</p></div>`;
+    return;
+  }
+  
+  const { rows } = filterByStudent(data, currentStudent);
+  const headers = getHeaders(data);
+  
+  // Find linked URLs
+  let foundLinks = [];
+  rows.forEach(row => (row.c||[]).forEach(cell => {
+    const v = cellVal(cell);
+    if (v && v.startsWith('http')) foundLinks.push(v);
+  }));
+  foundLinks = [...new Set(foundLinks)];
+  
+  let extra = '';
+  if (foundLinks.length > 0) {
+    extra = `<div class="section-card" style="border-color:rgba(124,111,255,0.3);">
+      <div class="section-title">🔗 Linked Resources</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${foundLinks.map(l => {
+          const isSheet = l.includes('docs.google.com');
+          const icon = isSheet ? '📊' : '🌐';
+          const label = isSheet ? 'Linked Sheet' : 'Website';
+          return `<a href="${l}" target="_blank" style="color:var(--accent);font-size:0.85rem;display:inline-flex;align-items:center;gap:6px;padding:10px 14px;background:rgba(124,111,255,0.05);border-radius:10px;border:1px solid rgba(124,111,255,0.15);text-decoration:none;">${icon} <strong>${label}:</strong> <span style="color:var(--muted);">${l.length > 55 ? l.substring(0,55)+'…' : l}</span> ↗</a>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+  
+  content.innerHTML = `${extra}<div class="section-card">
+    <div class="section-title">${title} ${rows.length > 0 ? `(${rows.length} entries)` : ''}</div>
+    ${renderTable(headers, rows)}
+  </div>`;
+}
+
+async function renderPersonal(content) {
+  const sheets = [{ id: currentStudent.personalSheet, label: 'Personal Sheet' }];
+  if (currentStudent.personalSheet2) {
+    sheets[0].label = 'Batch 1 Personal Sheet';
+    sheets.push({ id: currentStudent.personalSheet2, label: 'Batch 2 Personal Sheet' });
+  }
+  
+  let html = `<div class="info-banner">
+    <span style="font-size:1.2rem;">📁</span>
+    <div>Student's personal sheet — typically contains the link to their blogging task or project work.</div>
+  </div>`;
+  
+  for (const s of sheets) {
+    // Try to fetch the default first sheet
+    const data = await fetchSheet(s.id, '');
+    
+    let foundLinks = [];
+    let tableHtml = '';
+    
+    if (data && getRows(data).length > 0) {
+      const headers = getHeaders(data);
+      const rows = getRows(data);
+      rows.forEach(row => (row.c||[]).forEach(cell => {
+        const v = cellVal(cell);
+        if (v && v.startsWith('http')) foundLinks.push(v);
+      }));
+      tableHtml = renderTable(headers, rows);
+    }
+    
+    let linksHtml = '';
+    if (foundLinks.length > 0) {
+      foundLinks = [...new Set(foundLinks)];
+      linksHtml = `<div style="margin-bottom:1rem;display:flex;flex-direction:column;gap:8px;">
+        ${foundLinks.map(u => `<a href="${u}" target="_blank" style="color:var(--accent);font-size:0.9rem;padding:10px 14px;background:rgba(124,111,255,0.08);border:1px solid rgba(124,111,255,0.2);border-radius:10px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">🔗 ${u} ↗</a>`).join('')}
+      </div>`;
+    }
+    
+    html += `<div class="section-card">
+      <div class="section-title">📁 ${s.label}</div>
+      ${linksHtml}
+      ${tableHtml || `<div class="null-cell" style="padding:1rem;">Couldn't load data — sheet may be locked. <a href="https://docs.google.com/spreadsheets/d/${s.id}" target="_blank" style="color:var(--accent);">Open directly ↗</a></div>`}
+    </div>`;
+  }
+  
+  content.innerHTML = html;
+}
+
+function showHome() {
+  document.getElementById('detail-view').classList.remove('active');
+  document.getElementById('home-view').classList.add('active');
+  document.getElementById('back-btn').classList.remove('visible');
+  currentStudent = null;
+  window.scrollTo(0, 0);
+}
+
+// Init
+loadHome();
+</script>
+</body>
+</html>
